@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>6/27 排球報名</title>
+
+https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.jsscript>
+https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.jsscript>
+
+<style>
+body { font-family: Arial; text-align:center; background:#f5f5f5; }
+.container { max-width:500px; margin:auto; background:white; padding:20px; border-radius:10px; }
+input,select,button { margin:5px; padding:10px; font-size:16px; width:80%; }
+button { background:#4CAF50; color:white; border:none; border-radius:5px; }
+.section { margin-top:20px; padding:10px; border:1px solid #ccc; border-radius:10px; }
+</style>
+</head>
+
+<body>
+<div class="container">
+<h2>🏐 6/27 排球報名</h2>
+
+<input type="text" id="name" placeholder="姓名"><br>
+<select id="gender">
+<option value="男">男</option>
+<option value="女">女</option>
+</select><br>
+
+<button onclick="signup()">報名</button>
+
+<div class="section">
+<h3>✅ 正選（男9 / 女9）</h3>
+<div id="mainList"></div>
+</div>
+
+<div class="section">
+<h3>🕒 候補</h3>
+<div id="waitingList"></div>
+</div>
+</div>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyCvPZtCfOFVjX3JrYUQ8kBxZBkDpa4G5iE",
+  authDomain: "volleyball-43005.firebaseapp.com",
+  projectId: "volleyball-43005",
+  storageBucket: "volleyball-43005.firebasestorage.app",
+  messagingSenderId: "900566331262",
+  appId: "1:900566331262:web:ba1eb4f072ef0e4f2e0d2f",
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+async function signup() {
+    const name = document.getElementById("name").value.trim();
+    const gender = document.getElementById("gender").value;
+
+    if (!name) return alert("請輸入姓名");
+
+    const snapshot = await db.collection("players").get();
+
+    let male = [], female = [];
+    snapshot.forEach(doc => {
+        let p = doc.data();
+        if (p.status === "main") {
+            if (p.gender === "男") male.push(p);
+            else female.push(p);
+        }
+    });
+
+    let status = "waiting";
+    if (gender === "男" && male.length < 9) status = "main";
+    if (gender === "女" && female.length < 9) status = "main";
+
+    await db.collection("players").add({
+        name,
+        gender,
+        status,
+        time: Date.now()
+    });
+
+    document.getElementById("name").value = "";
+}
+
+db.collection("players").orderBy("time")
+.onSnapshot(snapshot => {
+
+    let mainMale = [], mainFemale = [], waiting = [];
+
+    snapshot.forEach(doc => {
+        let p = doc.data();
+        if (p.status === "main") {
+            if (p.gender === "男") mainMale.push(p.name);
+            else mainFemale.push(p.name);
+        } else {
+            waiting.push(p.name + "（" + p.gender + "）");
+        }
+    });
+
+    document.getElementById("mainList").innerHTML =
+        "<b>男：</b><br>" + mainMale.join("<br>") +
+        "<br><br><b>女：</b><br>" + mainFemale.join("<br>");
+
+    document.getElementById("waitingList").innerHTML =
+        waiting.join("<br>");
+});
+</script>
+</body>
+</html>
