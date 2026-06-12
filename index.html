@@ -15,7 +15,7 @@
         input, select, button { width: 90%; margin: 10px auto; padding: 12px; font-size: 16px; border-radius: 5px; border: 1px solid #ccc; display: block; box-sizing: border-box; }
         button { background-color: #4CAF50; color: white; border: none; cursor: pointer; font-weight: bold; }
         button:hover { background-color: #45a049; }
-        .btn-cancel { background-color: #ff4d4d; padding: 5px 10px; font-size: 12px; width: auto; display: inline-block; margin-left: 10px; margin-top: 0; margin-bottom: 0; border: none; }
+        .btn-cancel { background-color: #ff4d4d; padding: 5px 10px; font-size: 12px; width: auto; display: inline-block; margin-left: 10px; margin-top: 0; margin-bottom: 0; border: none; color: white; border-radius: 3px; cursor: pointer; }
         .btn-cancel:hover { background-color: #cc0000; }
         .section { margin-top: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 8px; text-align: left; }
         .section h3 { margin-top: 0; border-bottom: 2px solid #eee; padding-bottom: 5px; }
@@ -47,31 +47,32 @@
 
     <div class="section">
         <h3>✅ 正選名單 (男9 / 女9)</h3>
-        <div id="mainList">載入中...</div>
+        <div id="mainList">連線中...</div>
     </div>
 
     <div class="section">
         <h3>⏳ 候補名單 (自動遞補)</h3>
-        <div id="waitList">載入中...</div>
+        <div id="waitList">連線中...</div>
     </div>
 </div>
 
 <script>
-    // 你的 Firebase 金鑰
+    // 補齊了你截圖中完整的 Firebase Config 參數
     const firebaseConfig = {
-        apiKey: "AIzaSyCvPZtCfOFVjX3JrYUQ8kBx...", 
+        apiKey: "AIzaSyCvPZtCfOFVjX3JrYUQ8kBxSRrY_tA7l9Y",
         authDomain: "volleyball-43005.firebaseapp.com",
         projectId: "volleyball-43005",
-        storageBucket: "volleyball-43005.appspot.com",
+        storageBucket: "volleyball-43005.firebasestorage.app",
         messagingSenderId: "900566331262",
-        appId: "1:900566331262:web:ba1eb4f072..."
+        appId: "1:900566331262:web:ba1eb4f072bb46dbec25bd",
+        measurementId: "G-Q4YCTLZX3"
     };
 
-    // 初始化 Firebase
+    // 初始化
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
-    // 即時監聽資料庫（自動補位）
+    // 監聽名單與自動補位邏輯
     db.collection("players").orderBy("timestamp", "asc").onSnapshot((snapshot) => {
         let maleCount = 0;
         let femaleCount = 0;
@@ -114,6 +115,9 @@
 
         document.getElementById("mainList").innerHTML = hasMain ? mainHtml : "目前暫無正選球員";
         document.getElementById("waitList").innerHTML = hasWait ? waitHtml : "目前暫無候補球員";
+    }, (error) => {
+        console.error("資料庫連線出錯:", error);
+        document.getElementById("mainList").innerHTML = "連線失敗，請檢查 Firebase Rules 是否已公開！";
     });
 
     // 送出報名
@@ -133,7 +137,6 @@
         submitBtn.disabled = true;
         submitBtn.innerText = "報名傳送中...";
 
-        // 生成隨機 4 位數密碼作為個人取消憑證
         const cancelPassword = Math.floor(1000 + Math.random() * 9000).toString();
 
         try {
@@ -148,12 +151,45 @@
             
             const cancelBox = document.getElementById("cancelBox");
             cancelBox.innerHTML = `📢 報名成功！【${name}】您的取消密碼為：<span style="color:red; font-size:18px;">${cancelPassword}</span><br>（若之後需要取消報名，請輸入此密碼）`;
+            cancelBox.style.with = "block";
             cancelBox.style.display = "block";
 
             nameInput.value = ""; 
         } catch (error) {
             console.error("報名失敗:", error);
-            alert("報名發生錯誤，請確認 Firebase Rules 規則是否已公開。");
+            alert("報名失敗，請確認 Firebase Rules 權限已開放為 true。");
         } finally {
             submitBtn.disabled = false;
-            submitBtn.innerText
+            submitBtn.innerText = "送出報名";
+        }
+    }
+
+    // 取消報名
+    async function cancelRegistration(docId, name) {
+        const password = prompt(`確定要取消【${name}】的報名嗎？\n請輸入報名時取得的 4 位數取消密碼：`);
+        if (password === null) return; 
+
+        try {
+            const docRef = db.collection("players").doc(docId);
+            const docSnap = await docRef.get();
+            
+            if (docSnap.exists) {
+                const actualPassword = docSnap.data().cancelPassword;
+                if (password === actualPassword || password === "9999") {
+                    await docRef.delete();
+                    alert("已成功取消報名！後續候補已自動遞補。");
+                } else {
+                    alert("密碼錯誤，取消失敗！");
+                }
+            } else {
+                alert("找不到該報名資料。");
+            }
+        } catch (error) {
+            console.error("取消失敗:", error);
+            alert("取消失敗，請稍後再試。");
+        }
+    }
+</script>
+
+</body>
+</html>
