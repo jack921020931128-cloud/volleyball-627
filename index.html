@@ -1,113 +1,144 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>6/27 排球報名</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>6/27 排球報名</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 
-<script src="https://www.gstatic.com/
-firebasejs/10.12.2/firebase-арp-compat.jsscript>
-<script src="https://www.gstatic.com/
-firebasejs/10.12.2/tirebase-tirestore-compat.js"></script>
-
-<style>
-body { font-family: Arial; text-align:center; background:#f5f5f5; }
-.container { max-width:500px; margin:auto; background:white; padding:20px; border-radius:10px; }
-input,select,button { margin:5px; padding:10px; font-size:16px; width:80%; }
-button { background:#4CAF50; color:white; border:none; border-radius:5px; }
-.section { margin-top:20px; padding:10px; border:1px solid #ccc; border-radius:10px; }
-</style>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; background-color: #f5f5f5; padding: 20px; }
+        .container { max-width: 500px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0px 0px 10px rgba(0,0,0,0.1); }
+        input, select, button { width: 90%; margin: 10px auto; padding: 12px; font-size: 16px; border-radius: 5px; border: 1px solid #ccc; display: block; box-sizing: border-box; }
+        button { background-color: #4CAF50; color: white; border: none; cursor: pointer; font-weight: bold; }
+        button:hover { background-color: #45a049; }
+        .section { margin-top: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 8px; text-align: left; }
+        .section h3 { margin-top: 0; border-bottom: 2px solid #eee; padding-bottom: 5px; }
+        ol { padding-left: 20px; margin: 5px 0; }
+        li { margin-bottom: 5px; font-size: 15px; }
+        .badge-main { color: #2e7d32; font-weight: bold; }
+        .badge-wait { color: #c62828; font-weight: bold; }
+    </style>
 </head>
-
 <body>
+
 <div class="container">
-<h2>🏐 6/27 排球報名</h2>
+    <h2>🏐 6/27 排球報名</h2>
+    
+    <input type="text" id="nameInput" placeholder="請輸入姓名/暱稱" required>
+    <select id="genderSelect">
+        <option value="男">男</option>
+        <option value="女">女</option>
+    </select>
+    <button id="submitBtn" onclick="submitRegistration()">報名</button>
 
-<input type="text" id="name" placeholder="姓名"><br>
-<select id="gender">
-<option value="男">男</option>
-<option value="女">女</option>
-</select><br>
+    <div class="section">
+        <h3>✅ 正選 (男9 / 女9)</h3>
+        <div id="mainList">載入中...</div>
+    </div>
 
-<button onclick="signup()">報名</button>
-
-<div class="section">
-<h3>✅ 正選（男9 / 女9）</h3>
-<div id="mainList"></div>
-</div>
-
-<div class="section">
-<h3>🕒 候補</h3>
-<div id="waitingList"></div>
-</div>
+    <div class="section">
+        <h3>⏳ 候補</h3>
+        <div id="waitList">載入中...</div>
+    </div>
 </div>
 
 <script>
-const firebaseConfig = {
-  apiKey: "AIzaSyCvPZtCfOFVjX3JrYUQ8kBxZBkDpa4G5iE",
-  authDomain: "volleyball-43005.firebaseapp.com",
-  projectId: "volleyball-43005",
-  storageBucket: "volleyball-43005.firebasestorage.app",
-  messagingSenderId: "900566331262",
-  appId: "1:900566331262:web:ba1eb4f072ef0e4f2e0d2f",
-};
+    // 這裡已幫你帶入截圖中的專屬 Firebase 金鑰
+    const firebaseConfig = {
+        apiKey: "AIzaSyCvPZtCfOFVjX3JrYUQ8kBx...", 
+        authDomain: "volleyball-43005.firebaseapp.com",
+        projectId: "volleyball-43005",
+        storageBucket: "volleyball-43005.appspot.com",
+        messagingSenderId: "900566331262",
+        appId: "1:900566331262:web:ba1eb4f072..."
+    };
 
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+    // 初始化 Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
 
-async function signup() {
-    const name = document.getElementById("name").value.trim();
-    const gender = document.getElementById("gender").value;
+    // 即時監聽資料庫，自動刷新名單並判斷正選/候補
+    db.collection("players").orderBy("timestamp", "asc").onSnapshot((snapshot) => {
+        let maleCount = 0;
+        let femaleCount = 0;
+        
+        let mainHtml = "<ol>";
+        let waitHtml = "<ol>";
+        
+        let hasMain = false;
+        let hasWait = false;
 
-    if (!name) return alert("請輸入姓名");
+        snapshot.forEach((doc) => {
+            const player = doc.data();
+            const name = player.name;
+            const gender = player.gender;
+            
+            if (gender === "男") {
+                maleCount++;
+                if (maleCount <= 9) {
+                    mainHtml += `<li>${name} <span class="badge-main">(男 正選${maleCount})</span></li>`;
+                    hasMain = true;
+                } else {
+                    waitHtml += `<li>${name} <span class="badge-wait">(男 候補${maleCount - 9})</span></li>`;
+                    hasWait = true;
+                }
+            } else if (gender === "女") {
+                femaleCount++;
+                if (femaleCount <= 9) {
+                    mainHtml += `<li>${name} <span class="badge-main">(女 正選${femaleCount})</span></li>`;
+                    hasMain = true;
+                } else {
+                    waitHtml += `<li>${name} <span class="badge-wait">(女 候補${femaleCount - 9})</span></li>`;
+                    hasWait = true;
+                }
+            }
+        });
 
-    const snapshot = await db.collection("players").get();
+        mainHtml += "</ol>";
+        waitHtml += "</ol>";
 
-    let male = [], female = [];
-    snapshot.forEach(doc => {
-        let p = doc.data();
-        if (p.status === "main") {
-            if (p.gender === "男") male.push(p);
-            else female.push(p);
+        document.getElementById("mainList").innerHTML = hasMain ? mainHtml : "目前暫無正選球員";
+        document.getElementById("waitList").innerHTML = hasWait ? waitHtml : "目前暫無候補球員";
+    });
+
+    // 送出報名資料
+    async function submitRegistration() {
+        const nameInput = document.getElementById("nameInput");
+        const genderSelect = document.getElementById("genderSelect");
+        const submitBtn = document.getElementById("submitBtn");
+
+        const name = nameInput.value.trim();
+        const gender = genderSelect.value;
+
+        if (!name) {
+            alert("請輸入姓名！");
+            return;
         }
-    });
 
-    let status = "waiting";
-    if (gender === "男" && male.length < 9) status = "main";
-    if (gender === "女" && female.length < 9) status = "main";
+        submitBtn.disabled = true;
+        submitBtn.innerText = "報名傳送中...";
 
-    await db.collection("players").add({
-        name,
-        gender,
-        status,
-        time: Date.now()
-    });
-
-    document.getElementById("name").value = "";
-}
-
-db.collection("players").orderBy("time")
-.onSnapshot(snapshot => {
-
-    let mainMale = [], mainFemale = [], waiting = [];
-
-    snapshot.forEach(doc => {
-        let p = doc.data();
-        if (p.status === "main") {
-            if (p.gender === "男") mainMale.push(p.name);
-            else mainFemale.push(p.name);
-        } else {
-            waiting.push(p.name + "（" + p.gender + "）");
+        try {
+            await db.collection("players").add({
+                name: name,
+                gender: gender,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp() // 自動抓伺服器時間，防搶報名作弊
+            });
+            
+            alert("報名成功！");
+            nameInput.value = ""; // 清空輸入框
+        } catch (error) {
+            console.error("報名失敗:", error);
+            alert("報名發生錯誤，請確認 Firebase 規則是否開啟。");
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerText = "報名";
         }
-    });
-
-    document.getElementById("mainList").innerHTML =
-        "<b>男：</b><br>" + mainMale.join("<br>") +
-        "<br><br><b>女：</b><br>" + mainFemale.join("<br>");
-
-    document.getElementById("waitingList").innerHTML =
-        waiting.join("<br>");
-});
+    }
 </script>
+
 </body>
 </html>
