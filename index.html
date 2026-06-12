@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>6/27 排球報名</title>
+    <title>6/27 逸仙堂排球報名</title>
     
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -11,42 +11,53 @@
     <style>
         body { font-family: Arial, sans-serif; text-align: center; background-color: #f5f5f5; padding: 20px; }
         .container { max-width: 500px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0px 0px 10px rgba(0,0,0,0.1); }
+        .info-box { background: #e8f5e9; color: #2e7d32; padding: 12px; border-radius: 8px; margin-bottom: 20px; font-weight: bold; line-height: 1.6; }
         input, select, button { width: 90%; margin: 10px auto; padding: 12px; font-size: 16px; border-radius: 5px; border: 1px solid #ccc; display: block; box-sizing: border-box; }
         button { background-color: #4CAF50; color: white; border: none; cursor: pointer; font-weight: bold; }
         button:hover { background-color: #45a049; }
+        .btn-cancel { background-color: #ff4d4d; padding: 5px 10px; font-size: 12px; width: auto; display: inline-block; margin-left: 10px; margin-top: 0; margin-bottom: 0; border: none; }
+        .btn-cancel:hover { background-color: #cc0000; }
         .section { margin-top: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 8px; text-align: left; }
         .section h3 { margin-top: 0; border-bottom: 2px solid #eee; padding-bottom: 5px; }
         ol { padding-left: 20px; margin: 5px 0; }
-        li { margin-bottom: 5px; font-size: 15px; }
+        li { margin-bottom: 8px; font-size: 15px; display: flex; justify-content: space-between; align-items: center; }
         .badge-main { color: #2e7d32; font-weight: bold; }
-        .badge-wait { color: #c62828; font-weight: bold; }
+        .badge-wait { color: #d32f2f; font-weight: bold; }
+        .cancel-box { background: #fff3cd; color: #856404; padding: 10px; border-radius: 5px; margin-top: 15px; font-size: 14px; font-weight: bold; display: none; word-break: break-all; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>🏐 6/27 排球報名</h2>
+    <h2>🏐 6/27 逸仙堂 女網混排</h2>
+    
+    <div class="info-box">
+        ⏰ 時間：12:00 - 17:00<br>
+        💰 費用：120 元 / 人
+    </div>
     
     <input type="text" id="nameInput" placeholder="請輸入姓名/暱稱" required>
     <select id="genderSelect">
-        <option value="男">男</option>
-        <option value="女">女</option>
+        <option value="男">男（上限 9 人）</option>
+        <option value="女">女（上限 9 人）</option>
     </select>
-    <button id="submitBtn" onclick="submitRegistration()">報名</button>
+    <button id="submitBtn" onclick="submitRegistration()">送出報名</button>
+
+    <div id="cancelBox" class="cancel-box"></div>
 
     <div class="section">
-        <h3>✅ 正選 (男9 / 女9)</h3>
+        <h3>✅ 正選名單 (男9 / 女9)</h3>
         <div id="mainList">載入中...</div>
     </div>
 
     <div class="section">
-        <h3>⏳ 候補</h3>
+        <h3>⏳ 候補名單 (自動遞補)</h3>
         <div id="waitList">載入中...</div>
     </div>
 </div>
 
 <script>
-    // 這裡已幫你帶入截圖中的專屬 Firebase 金鑰
+    // 你的 Firebase 金鑰
     const firebaseConfig = {
         apiKey: "AIzaSyCvPZtCfOFVjX3JrYUQ8kBx...", 
         authDomain: "volleyball-43005.firebaseapp.com",
@@ -60,7 +71,7 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
-    // 即時監聽資料庫，自動刷新名單並判斷正選/候補
+    // 即時監聽資料庫（自動補位）
     db.collection("players").orderBy("timestamp", "asc").onSnapshot((snapshot) => {
         let maleCount = 0;
         let femaleCount = 0;
@@ -72,6 +83,7 @@
         let hasWait = false;
 
         snapshot.forEach((doc) => {
+            const id = doc.id;
             const player = doc.data();
             const name = player.name;
             const gender = player.gender;
@@ -79,19 +91,19 @@
             if (gender === "男") {
                 maleCount++;
                 if (maleCount <= 9) {
-                    mainHtml += `<li>${name} <span class="badge-main">(男 正選${maleCount})</span></li>`;
+                    mainHtml += `<li><div>${name} <span class="badge-main">(男 正選${maleCount})</span></div> <button class="btn-cancel" onclick="cancelRegistration('${id}', '${name}')">取消</button></li>`;
                     hasMain = true;
                 } else {
-                    waitHtml += `<li>${name} <span class="badge-wait">(男 候補${maleCount - 9})</span></li>`;
+                    waitHtml += `<li><div>${name} <span class="badge-wait">(男 候補 第 ${maleCount - 9} 順位)</span></div> <button class="btn-cancel" onclick="cancelRegistration('${id}', '${name}')">取消</button></li>`;
                     hasWait = true;
                 }
             } else if (gender === "女") {
                 femaleCount++;
                 if (femaleCount <= 9) {
-                    mainHtml += `<li>${name} <span class="badge-main">(女 正選${femaleCount})</span></li>`;
+                    mainHtml += `<li><div>${name} <span class="badge-main">(女 正選${femaleCount})</span></div> <button class="btn-cancel" onclick="cancelRegistration('${id}', '${name}')">取消</button></li>`;
                     hasMain = true;
                 } else {
-                    waitHtml += `<li>${name} <span class="badge-wait">(女 候補${femaleCount - 9})</span></li>`;
+                    waitHtml += `<li><div>${name} <span class="badge-wait">(女 候補 第 ${femaleCount - 9} 順位)</span></div> <button class="btn-cancel" onclick="cancelRegistration('${id}', '${name}')">取消</button></li>`;
                     hasWait = true;
                 }
             }
@@ -104,7 +116,7 @@
         document.getElementById("waitList").innerHTML = hasWait ? waitHtml : "目前暫無候補球員";
     });
 
-    // 送出報名資料
+    // 送出報名
     async function submitRegistration() {
         const nameInput = document.getElementById("nameInput");
         const genderSelect = document.getElementById("genderSelect");
@@ -121,24 +133,27 @@
         submitBtn.disabled = true;
         submitBtn.innerText = "報名傳送中...";
 
+        // 生成隨機 4 位數密碼作為個人取消憑證
+        const cancelPassword = Math.floor(1000 + Math.random() * 9000).toString();
+
         try {
             await db.collection("players").add({
                 name: name,
                 gender: gender,
-                timestamp: firebase.firestore.FieldValue.serverTimestamp() // 自動抓伺服器時間，防搶報名作弊
+                cancelPassword: cancelPassword,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
             });
             
-            alert("報名成功！");
-            nameInput.value = ""; // 清空輸入框
+            alert(`🎉 報名成功！`);
+            
+            const cancelBox = document.getElementById("cancelBox");
+            cancelBox.innerHTML = `📢 報名成功！【${name}】您的取消密碼為：<span style="color:red; font-size:18px;">${cancelPassword}</span><br>（若之後需要取消報名，請輸入此密碼）`;
+            cancelBox.style.display = "block";
+
+            nameInput.value = ""; 
         } catch (error) {
             console.error("報名失敗:", error);
-            alert("報名發生錯誤，請確認 Firebase 規則是否開啟。");
+            alert("報名發生錯誤，請確認 Firebase Rules 規則是否已公開。");
         } finally {
             submitBtn.disabled = false;
-            submitBtn.innerText = "報名";
-        }
-    }
-</script>
-
-</body>
-</html>
+            submitBtn.innerText
